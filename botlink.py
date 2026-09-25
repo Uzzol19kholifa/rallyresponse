@@ -25,6 +25,13 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Bot is running.")
 
+    def do_HEAD(self):
+        # UptimeRobot free plan by default HEAD request pathay.
+        # do_HEAD na thakle BaseHTTPRequestHandler nijei 501 Not Implemented
+        # return kore dey, tai eta add kora hoyeche.
+        self.send_response(200)
+        self.end_headers()
+
     def log_message(self, format, *args):
         # Access log terminal-e print hobe na, shudhu bot-er nijer log dekha jabe
         pass
