@@ -1,5 +1,8 @@
 import os
+import threading
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -10,19 +13,40 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GROUP_LINK = os.environ.get("GROUP_LINK", "https://t.me/+wu0s4ciR9AhhMTk1")
 
 
+# ---------------------------------------------------------------------------
+# Render-er Free Web Service ekta open port asha kore, nahole "no open port
+# detected" bole deploy fail kore dey. Bot nijei kono port lage na (polling
+# mode), tai ekta chotto dummy HTTP server chalu kore rakhchi shudhu
+# health-check pass korar jonno.
+# ---------------------------------------------------------------------------
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running.")
+
+    def log_message(self, format, *args):
+        # Access log terminal-e print hobe na, shudhu bot-er nijer log dekha jabe
+        pass
+
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    print(f"Health-check server running on port {port}")
+    server.serve_forever()
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_name = user.first_name
     username = f"@{user.username}" if user.username else "No Username"
     user_id = user.id
 
-    # Exact current time ber korar jonno
     current_time = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
 
-    # Terminal-e time soho print hobe
     print(f"[{current_time}] 📥 New User: {user_name} | {username} | ID: {user_id}")
 
-    # users.txt file-e time ebong username save hobe
     # Note: Render-er free instance-e filesystem ephemeral, tai restart hole
     # ei file muche jete pare. Persistent storage lagle Render Disk add korte hobe.
     with open("users.txt", "a", encoding="utf-8") as f:
@@ -40,6 +64,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN environment variable set kora nei! Render dashboard-e set korun.")
+
+    # Health-check server alada thread-e background-e chalu
+    threading.Thread(target=run_health_server, daemon=True).start()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
